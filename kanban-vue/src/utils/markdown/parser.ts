@@ -55,9 +55,22 @@ function parseConfigSection(text: string): KanbanConfig {
   const columnsMatch = text.match(/\*\*Columns\*\*:\s*(.+)/)
   if (columnsMatch) {
     config.columns = columnsMatch[1].split('|').map(col => {
-      const match = col.trim().match(/(.+?)\s*\((.+?)\)/)
-      return match ? { name: match[1].trim(), id: match[2].trim() } : null
-    }).filter(Boolean) as Column[]
+      const trimmed = col.trim()
+      // 尝试匹配 "名称 (id)" 格式
+      const match = trimmed.match(/(.+?)\s*\((.+?)\)/)
+      if (match) {
+        return { name: match[1].trim(), id: match[2].trim() }
+      }
+      // 如果没有 id，从名称生成 id（转小写，空格替换为连字符，移除 emoji）
+      const name = trimmed
+      const id = name
+        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // 移除 emoji
+        .toLowerCase()
+        .replace(/[^\w\s\u4e00-\u9fff-]/g, '') // 保留字母数字中文和连字符
+        .trim()
+        .replace(/\s+/g, '-') // 空格替换为连字符
+      return { name, id: id || `column-${Math.random().toString(36).slice(2, 8)}` }
+    }).filter(col => col && col.name) as Column[]
   }
 
   // 解析分类
@@ -113,8 +126,17 @@ function parseTasksFromSection(content: string, sectionName: string, statusId: s
   let sectionContent: string | null = null
 
   for (const section of sections) {
-    if (section.startsWith(sectionName) || section.includes(`(${statusId})`)) {
-      sectionContent = section.substring(section.indexOf('\n')).trim()
+    // 获取 section 的第一行（标题行）
+    const newlineIndex = section.indexOf('\n')
+    const sectionTitle = newlineIndex > 0 ? section.substring(0, newlineIndex).trim() : section.trim()
+
+    // 检查标题是否匹配列名或包含 (id) 格式
+    const titleMatches = sectionTitle === sectionName ||
+                         sectionTitle.startsWith(sectionName) ||
+                         sectionTitle.includes(`(${statusId})`)
+
+    if (titleMatches) {
+      sectionContent = newlineIndex > 0 ? section.substring(newlineIndex).trim() : ''
       break
     }
   }
