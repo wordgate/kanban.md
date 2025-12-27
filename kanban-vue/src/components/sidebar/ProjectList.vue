@@ -62,10 +62,7 @@ function getProjectName(projectId: string): string {
       </div>
     </div>
 
-    <div v-if="sidebarIsFocused && projectStore.projects.length > 0" class="nav-hints">
-      <span><kbd>↑↓</kbd> 导航</span>
-      <span><kbd>Space</kbd> 选择</span>
-    </div>
+    <!-- 快捷键提示已移至全局 KeyHintBar 组件 -->
   </div>
 </template>
 
@@ -157,18 +154,5 @@ function getProjectName(projectId: string): string {
   color: var(--text-muted);
   font-size: 0.85rem;
   padding: var(--spacing-sm);
-}
-
-.nav-hints {
-  display: flex;
-  gap: var(--spacing-md);
-  padding-top: var(--spacing-sm);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-}
-
-.nav-hints kbd {
-  font-size: 0.65rem;
-  margin-right: 2px;
 }
 </style>

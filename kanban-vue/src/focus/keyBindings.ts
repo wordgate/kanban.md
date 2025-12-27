@@ -77,7 +77,7 @@ function modifiersMatch(
   }
 
   // Check each modifier
-  const wantsCmdOrCtrl = mods.meta || mods.ctrl
+  const wantsCmdOrCtrl = !!(mods.meta || mods.ctrl)
   const hasCmdOrCtrl = event.metaKey || event.ctrlKey
 
   if (wantsCmdOrCtrl !== hasCmdOrCtrl) return false

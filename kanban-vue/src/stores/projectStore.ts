@@ -42,7 +42,13 @@ export const useProjectStore = defineStore('project', () => {
       return new Promise<void>((resolve, reject) => {
         request.onerror = () => reject(request.error)
         request.onsuccess = () => {
-          projects.value = request.result.sort((a, b) => b.lastAccess - a.lastAccess)
+          // 按创建时间排序（从 id 中提取时间戳），保持稳定顺序
+          // 项目 id 格式为 project-{timestamp}
+          projects.value = request.result.sort((a, b) => {
+            const timeA = parseInt(a.id.replace('project-', '')) || 0
+            const timeB = parseInt(b.id.replace('project-', '')) || 0
+            return timeA - timeB  // 按创建时间升序，最早创建的在上面
+          })
           resolve()
         }
       })
