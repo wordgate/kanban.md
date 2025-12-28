@@ -78,6 +78,26 @@ function handleInputKeydown(event: KeyboardEvent) {
     event.preventDefault()
     event.stopPropagation()
     exitEditMode()
+    return
+  }
+
+  // 上下箭头键：退出编辑模式，让全局键盘处理来移动焦点
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault()
+    event.stopPropagation()
+    exitEditMode()
+    // 手动触发全局导航
+    const action = event.key === 'ArrowUp' ? 'up' : 'down'
+    window.dispatchEvent(new CustomEvent('focus-navigate', { detail: { action } }))
+  }
+
+  // Tab 键：移动到下/上一个字段
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    event.stopPropagation()
+    exitEditMode()
+    const action = event.shiftKey ? 'up' : 'down'
+    window.dispatchEvent(new CustomEvent('focus-navigate', { detail: { action } }))
   }
 }
 

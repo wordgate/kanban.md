@@ -165,13 +165,25 @@ export function useGlobalKeyboard() {
     }
   }
 
+  /**
+   * Handle programmatic navigation request (from input fields)
+   */
+  function onFocusNavigate(event: Event) {
+    const customEvent = event as CustomEvent<{ action: Action }>
+    if (customEvent.detail?.action) {
+      handleAction(customEvent.detail.action)
+    }
+  }
+
   // Setup and teardown
   onMounted(() => {
     window.addEventListener('keydown', onKeyDown, { capture: true })
+    window.addEventListener('focus-navigate', onFocusNavigate)
   })
 
   onUnmounted(() => {
     window.removeEventListener('keydown', onKeyDown, { capture: true })
+    window.removeEventListener('focus-navigate', onFocusNavigate)
   })
 
   // Return action handler for programmatic use

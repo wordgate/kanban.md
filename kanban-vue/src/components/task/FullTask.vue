@@ -60,9 +60,18 @@ function handleUpdate(data: Partial<Task>) {
 
 // 关闭
 function close() {
-  if (props.isNew && !localTask.value.title.trim()) {
+  // 获取当前任务的最新状态（从store而不是local副本）
+  const currentTask = taskStore.getTask(props.task.id)
+  const title = currentTask?.title || localTask.value.title
+
+  // 如果是新任务且标题为空，删除任务
+  if (props.isNew && !title.trim()) {
     taskStore.deleteTask(props.task.id)
   }
+
+  // 无论如何都清理新任务标记
+  uiStore.markTaskSaved(props.task.id)
+
   uiStore.closeFullTask()
   focusStore.popLayer()
 }

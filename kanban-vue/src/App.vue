@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import AppLayout from './components/layout/AppLayout.vue'
 import ConfirmDialog from './components/common/ConfirmDialog.vue'
 import KeyHintBar from './components/common/KeyHintBar.vue'
@@ -13,12 +13,19 @@ const projectStore = useProjectStore()
 const uiStore = useUIStore()
 const configStore = useConfigStore()
 const focusStore = useFocusStore()
-const { setupAutoSave, loadProject } = useProjectData()
+const { setupAutoSave, loadProject, saveProject } = useProjectData()
 
 // 统一键盘处理系统（替代旧的 useKeyboard）
 useGlobalKeyboard()
 
+// 处理全局保存事件 (Cmd+S)
+function handleAppSave() {
+  saveProject()
+}
+
 onMounted(async () => {
+  // 监听全局保存事件
+  window.addEventListener('app-save', handleAppSave)
   // 加载项目列表
   await projectStore.loadProjects()
 
@@ -36,6 +43,10 @@ onMounted(async () => {
 
   // 设置自动保存
   setupAutoSave()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('app-save', handleAppSave)
 })
 </script>
 

@@ -173,6 +173,17 @@ function updateDate(field: string, value: string): void {
   emit('update', { [field]: value })
 }
 
+// 日期输入框引用
+const dateInputRefs = new Map<string, HTMLInputElement>()
+
+function setDateInputRef(fieldValue: string, el: HTMLInputElement | null) {
+  if (el) {
+    dateInputRefs.set(fieldValue, el)
+  } else {
+    dateInputRefs.delete(fieldValue)
+  }
+}
+
 // 监听 meta-item-select 事件
 function handleMetaSelect(event: CustomEvent<{ index: number }>) {
   const index = event.detail.index
@@ -180,8 +191,23 @@ function handleMetaSelect(event: CustomEvent<{ index: number }>) {
   if (item) {
     if (item.mode !== 'input') {
       toggleItem(item)
+    } else if (item.section === 'date') {
+      // 日期字段：聚焦并打开选择器
+      nextTick(() => {
+        const input = dateInputRefs.get(item.value)
+        if (input) {
+          input.focus()
+          // 尝试打开日期选择器
+          if (typeof input.showPicker === 'function') {
+            try {
+              input.showPicker()
+            } catch {
+              // 某些浏览器可能不支持或需要用户交互
+            }
+          }
+        }
+      })
     }
-    // 日期字段在 select 时可以聚焦输入框（可选）
   }
 }
 
@@ -335,6 +361,7 @@ watch(focusedIndex, (index) => {
         >
           <label>{{ item.label.replace('日期', '') }}</label>
           <input
+            :ref="(el) => setDateInputRef(item.value, el as HTMLInputElement)"
             type="date"
             :value="(task as any)[item.value]"
             @input="updateDate(item.value, ($event.target as HTMLInputElement).value)"
