@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import TaskMeta from './TaskMeta.vue'
 import TaskEditor from './TaskEditor.vue'
 import SubtaskKanban from './SubtaskKanban.vue'
 import { useUIStore, useTaskStore } from '@/stores'
 import { useFocusStore } from '@/stores/focusStore'
 import { useFullTaskPanelFocus } from '@/composables/useFocusBinding'
-import type { Task } from '@/types'
+import { useTaskBinding, isTaskEmpty } from '@/composables/useTaskBinding'
 
 const props = defineProps<{
-  task: Task
+  taskId: string
   stackIndex: number
   zIndex: number
   isTop: boolean
@@ -20,57 +20,40 @@ const uiStore = useUIStore()
 const taskStore = useTaskStore()
 const focusStore = useFocusStore()
 
-// 本地编辑状态
-const localTask = ref({ ...props.task })
+// 使用响应式任务绑定 - 单一数据源
+const { task, title } = useTaskBinding(() => props.taskId)
 
 // 使用新的焦点系统
 const { isFocused: metaFocused } = useFullTaskPanelFocus(props.stackIndex, 'meta')
 const { isFocused: editorFocused } = useFullTaskPanelFocus(props.stackIndex, 'editor')
 const { isFocused: subtasksFocused } = useFullTaskPanelFocus(props.stackIndex, 'subtasks')
 
-// 子组件引用
-const taskEditorRef = ref<InstanceType<typeof TaskEditor> | null>(null)
-const taskMetaRef = ref<InstanceType<typeof TaskMeta> | null>(null)
-const subtaskKanbanRef = ref<InstanceType<typeof SubtaskKanban> | null>(null)
-
 // 父任务标题（用于面包屑显示）
 const parentTitle = computed(() => {
-  if (localTask.value.parentId) {
-    const parent = taskStore.getTask(localTask.value.parentId)
+  const t = task.value
+  if (t?.parentId) {
+    const parent = taskStore.getTask(t.parentId)
     return parent?.title || ''
   }
   return ''
 })
 
-// 同步外部更新
-watch(() => props.task, (newTask) => {
-  localTask.value = { ...newTask }
-}, { deep: true })
-
-// 实时保存更改
-function handleUpdate(data: Partial<Task>) {
-  Object.assign(localTask.value, data)
-  taskStore.updateTask(props.task.id, localTask.value)
-  // Auto-save will trigger from watch in useProjectData
-
-  if (data.title && data.title.trim()) {
-    uiStore.markTaskSaved(props.task.id)
+// 当标题有内容时，标记为已保存（不再是新任务）
+function onTitleChange() {
+  if (title.value.trim()) {
+    uiStore.markTaskSaved(props.taskId)
   }
 }
 
 // 关闭
 function close() {
-  // 获取当前任务的最新状态（从store而不是local副本）
-  const currentTask = taskStore.getTask(props.task.id)
-  const title = currentTask?.title || localTask.value.title
-
   // 如果是新任务且标题为空，删除任务
-  if (props.isNew && !title.trim()) {
-    taskStore.deleteTask(props.task.id)
+  if (props.isNew && isTaskEmpty(task.value)) {
+    taskStore.deleteTask(props.taskId)
   }
 
   // 无论如何都清理新任务标记
-  uiStore.markTaskSaved(props.task.id)
+  uiStore.markTaskSaved(props.taskId)
 
   uiStore.closeFullTask()
   focusStore.popLayer()
@@ -79,6 +62,7 @@ function close() {
 
 <template>
   <div
+    v-if="task"
     class="full-task-overlay"
     :class="{ 'is-top': isTop }"
     :style="{ zIndex }"
@@ -99,31 +83,27 @@ function close() {
         <!-- 左侧：元数据 -->
         <div class="panel panel-left" :class="{ focused: metaFocused }">
           <TaskMeta
-            ref="taskMetaRef"
-            :task="localTask"
+            :task-id="taskId"
             :stack-index="stackIndex"
             :active="metaFocused"
             :parent-title="parentTitle"
-            @update="handleUpdate"
           />
         </div>
 
         <!-- 中间：编辑区 -->
         <div class="panel panel-center" :class="{ focused: editorFocused }">
           <TaskEditor
-            ref="taskEditorRef"
-            :task="localTask"
+            :task-id="taskId"
             :stack-index="stackIndex"
             :active="editorFocused"
-            @update="handleUpdate"
+            @title-change="onTitleChange"
           />
         </div>
 
         <!-- 右侧：子任务 -->
         <div class="panel panel-right" :class="{ focused: subtasksFocused }">
           <SubtaskKanban
-            ref="subtaskKanbanRef"
-            :parent-task="localTask"
+            :parent-task-id="taskId"
             :active="subtasksFocused"
             :focus-index="0"
           />

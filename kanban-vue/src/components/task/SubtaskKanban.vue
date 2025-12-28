@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useUIStore, useTaskStore, useConfigStore } from '@/stores'
+import { useTaskBinding } from '@/composables/useTaskBinding'
 import type { Task } from '@/types'
 
 const props = defineProps<{
-  parentTask: Task
+  parentTaskId: string
   active: boolean
   focusIndex: number
 }>()
@@ -17,9 +18,12 @@ const uiStore = useUIStore()
 const taskStore = useTaskStore()
 const configStore = useConfigStore()
 
+// 使用响应式任务绑定获取父任务
+const { task: parentTask } = useTaskBinding(() => props.parentTaskId)
+
 // 获取子任务（作为独立任务存储）
 const subtasks = computed(() => {
-  return taskStore.getSubtasks(props.parentTask.id)
+  return taskStore.getSubtasks(props.parentTaskId)
 })
 
 // 内部焦点索引：0 = 添加按钮, 1+ = 子任务
@@ -39,19 +43,20 @@ const inputRef = ref<HTMLInputElement | null>(null)
 // 添加子任务
 function addSubtask(): void {
   if (!newTaskTitle.value.trim()) return
+  if (!parentTask.value) return
 
   // 创建独立任务并关联到父任务
   const task = taskStore.createTask('todo', {
     title: newTaskTitle.value.trim(),
-    parentId: props.parentTask.id,
+    parentId: props.parentTaskId,
   })
 
   // 同时更新父任务的 subtasks 列表
-  const subtaskIds = [...(props.parentTask.subtasks || []).map(s =>
+  const subtaskIds = [...(parentTask.value.subtasks || []).map(s =>
     typeof s === 'string' ? s : s.text
   )]
   subtaskIds.push(task.id)
-  taskStore.updateTask(props.parentTask.id, {
+  taskStore.updateTask(props.parentTaskId, {
     subtasks: subtaskIds.map(id => ({ text: id, completed: false }))
   })
 
@@ -198,7 +203,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="subtask-kanban">
+  <div v-if="parentTask" class="subtask-kanban">
     <div class="subtask-header">
       <span class="subtask-title">子任务</span>
       <span class="subtask-count">{{ subtasks.length }}</span>

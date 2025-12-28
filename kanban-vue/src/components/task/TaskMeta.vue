@@ -2,10 +2,10 @@
 import { computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useConfigStore } from '@/stores'
 import { useFocusStore } from '@/stores/focusStore'
-import type { Task } from '@/types'
+import { useTaskBinding } from '@/composables/useTaskBinding'
 
 const props = defineProps<{
-  task: Task
+  taskId: string
   stackIndex: number
   active: boolean
   parentTitle?: string
@@ -14,12 +14,22 @@ const props = defineProps<{
 // 元素引用，用于滚动
 const itemRefs = new Map<number, HTMLElement>()
 
-const emit = defineEmits<{
-  update: [data: Partial<Task>]
-}>()
-
 const configStore = useConfigStore()
 const focusStore = useFocusStore()
+
+// 使用响应式任务绑定
+const {
+  task,
+  priority,
+  category,
+  assignees,
+  tags,
+  created,
+  started,
+  due,
+  completed,
+  updateField,
+} = useTaskBinding(() => props.taskId)
 
 // 定义所有可选项的扁平列表
 interface MetaItem {
@@ -104,7 +114,6 @@ const flatItems = computed<MetaItem[]>(() => {
 const focusedIndex = computed(() => {
   if (!props.active) return -1
   const path = focusStore.currentPath
-  // Path format: fullTask.{stackIndex}.meta.{itemIndex}
   const prefix = `fullTask.${props.stackIndex}.meta.`
   if (path.startsWith(prefix)) {
     const itemPart = path.slice(prefix.length)
@@ -118,13 +127,13 @@ const focusedIndex = computed(() => {
 function isSelected(item: MetaItem): boolean {
   switch (item.section) {
     case 'priority':
-      return props.task.priority.toLowerCase().includes(item.value)
+      return priority.value.toLowerCase().includes(item.value)
     case 'category':
-      return props.task.category === item.value
+      return category.value === item.value
     case 'assignee':
-      return props.task.assignees.includes(item.value)
+      return assignees.value.includes(item.value)
     case 'tag':
-      return props.task.tags.includes(item.value)
+      return tags.value.includes(item.value)
     default:
       return false
   }
@@ -134,43 +143,54 @@ function isSelected(item: MetaItem): boolean {
 function toggleItem(item: MetaItem): void {
   switch (item.section) {
     case 'priority': {
-      const priority = configStore.priorities.find(p => p.value === item.value)
-      if (priority) {
-        emit('update', { priority: `${priority.icon} ${priority.name}` })
+      const priorityConfig = configStore.priorities.find(p => p.value === item.value)
+      if (priorityConfig) {
+        updateField('priority', `${priorityConfig.icon} ${priorityConfig.name}`)
       }
       break
     }
     case 'category':
-      emit('update', { category: item.value })
+      updateField('category', item.value)
       break
     case 'assignee': {
-      const assignees = [...props.task.assignees]
-      const index = assignees.indexOf(item.value)
+      const currentAssignees = [...assignees.value]
+      const index = currentAssignees.indexOf(item.value)
       if (index === -1) {
-        assignees.push(item.value)
+        currentAssignees.push(item.value)
       } else {
-        assignees.splice(index, 1)
+        currentAssignees.splice(index, 1)
       }
-      emit('update', { assignees })
+      updateField('assignees', currentAssignees)
       break
     }
     case 'tag': {
-      const tags = [...props.task.tags]
-      const index = tags.indexOf(item.value)
+      const currentTags = [...tags.value]
+      const index = currentTags.indexOf(item.value)
       if (index === -1) {
-        tags.push(item.value)
+        currentTags.push(item.value)
       } else {
-        tags.splice(index, 1)
+        currentTags.splice(index, 1)
       }
-      emit('update', { tags })
+      updateField('tags', currentTags)
       break
     }
   }
 }
 
+// 获取日期值
+function getDateValue(field: string): string {
+  switch (field) {
+    case 'created': return created.value
+    case 'started': return started.value
+    case 'due': return due.value
+    case 'completed': return completed.value
+    default: return ''
+  }
+}
+
 // 更新日期
 function updateDate(field: string, value: string): void {
-  emit('update', { [field]: value })
+  updateField(field as 'created' | 'started' | 'due' | 'completed', value)
 }
 
 // 日期输入框引用
@@ -192,12 +212,10 @@ function handleMetaSelect(event: CustomEvent<{ index: number }>) {
     if (item.mode !== 'input') {
       toggleItem(item)
     } else if (item.section === 'date') {
-      // 日期字段：聚焦并打开选择器
       nextTick(() => {
         const input = dateInputRefs.get(item.value)
         if (input) {
           input.focus()
-          // 尝试打开日期选择器
           if (typeof input.showPicker === 'function') {
             try {
               input.showPicker()
@@ -256,7 +274,7 @@ watch(focusedIndex, (index) => {
 </script>
 
 <template>
-  <div class="task-meta">
+  <div v-if="task" class="task-meta">
     <!-- 父任务面包屑 -->
     <div v-if="parentTitle" class="parent-breadcrumb">
       <span class="parent-title">{{ parentTitle }}</span>
@@ -363,7 +381,7 @@ watch(focusedIndex, (index) => {
           <input
             :ref="(el) => setDateInputRef(item.value, el as HTMLInputElement)"
             type="date"
-            :value="(task as any)[item.value]"
+            :value="getDateValue(item.value)"
             @input="updateDate(item.value, ($event.target as HTMLInputElement).value)"
           />
         </div>

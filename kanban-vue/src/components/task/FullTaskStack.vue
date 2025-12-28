@@ -1,32 +1,31 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import FullTask from './FullTask.vue'
-import { useUIStore, useTaskStore } from '@/stores'
+import { useUIStore } from '@/stores'
 
 const uiStore = useUIStore()
-const taskStore = useTaskStore()
 
-const stackTasks = computed(() => {
+// 简化：只传递 taskId，让子组件自己从 store 获取数据
+const stackItems = computed(() => {
   return uiStore.fullTaskStack.map((taskId, index) => ({
-    task: taskStore.getTask(taskId),
     taskId,
     index,
     zIndex: 100 + index,
     isNew: uiStore.isNewTask(taskId),
-  })).filter(item => item.task)
+  }))
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="stackTasks.length > 0" class="full-task-stack">
+    <div v-if="stackItems.length > 0" class="full-task-stack">
       <FullTask
-        v-for="item in stackTasks"
-        :key="item.task!.id"
-        :task="item.task!"
+        v-for="item in stackItems"
+        :key="item.taskId"
+        :task-id="item.taskId"
         :stack-index="item.index"
         :z-index="item.zIndex"
-        :is-top="item.index === stackTasks.length - 1"
+        :is-top="item.index === stackItems.length - 1"
         :is-new="item.isNew"
       />
     </div>

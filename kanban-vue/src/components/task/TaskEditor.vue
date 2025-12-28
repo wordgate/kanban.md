@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useFocusStore } from '@/stores/focusStore'
-import type { Task } from '@/types'
+import { useTaskBinding } from '@/composables/useTaskBinding'
 
 const props = defineProps<{
-  task: Task
+  taskId: string
   stackIndex: number
   active: boolean
 }>()
 
 const emit = defineEmits<{
-  update: [data: Partial<Task>]
+  'title-change': []
 }>()
 
 const focusStore = useFocusStore()
+
+// 使用响应式任务绑定 - 直接与 store 同步
+const { task, title, description, notes } = useTaskBinding(() => props.taskId)
 
 // 输入框引用
 const titleRef = ref<HTMLInputElement | null>(null)
@@ -27,7 +30,6 @@ const isEditing = ref(false)
 const focusedField = computed(() => {
   if (!props.active) return null
   const path = focusStore.currentPath
-  // Path format: fullTask.{stackIndex}.editor.{field}
   const prefix = `fullTask.${props.stackIndex}.editor.`
   if (path.startsWith(prefix)) {
     return path.slice(prefix.length)
@@ -35,17 +37,12 @@ const focusedField = computed(() => {
   return null
 })
 
-function updateTitle(value: string) {
-  emit('update', { title: value })
-}
-
-function updateDescription(value: string) {
-  emit('update', { description: value })
-}
-
-function updateNotes(value: string) {
-  emit('update', { notes: value })
-}
+// 监听标题变化，通知父组件
+watch(title, (newTitle, oldTitle) => {
+  if (newTitle !== oldTitle) {
+    emit('title-change')
+  }
+})
 
 // 进入编辑状态
 function enterEditMode() {
@@ -65,7 +62,6 @@ function enterEditMode() {
 // 退出编辑状态
 function exitEditMode() {
   isEditing.value = false
-  // 让当前聚焦的元素失去焦点
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur()
   }
@@ -86,7 +82,6 @@ function handleInputKeydown(event: KeyboardEvent) {
     event.preventDefault()
     event.stopPropagation()
     exitEditMode()
-    // 手动触发全局导航
     const action = event.key === 'ArrowUp' ? 'up' : 'down'
     window.dispatchEvent(new CustomEvent('focus-navigate', { detail: { action } }))
   }
@@ -111,32 +106,31 @@ function handleFieldFocus(field: 'title' | 'description' | 'notes') {
 }
 
 // 监听 editor-field-focus 事件 (Space/Enter 触发)
-function handleFieldSelect(_event: CustomEvent<{ field: string }>) {
+function handleFieldSelect() {
   enterEditMode()
 }
 
 onMounted(() => {
-  window.addEventListener('editor-field-focus', handleFieldSelect as EventListener)
+  window.addEventListener('editor-field-focus', handleFieldSelect)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('editor-field-focus', handleFieldSelect as EventListener)
+  window.removeEventListener('editor-field-focus', handleFieldSelect)
 })
 </script>
 
 <template>
-  <div class="task-editor">
+  <div v-if="task" class="task-editor">
     <!-- 标题 -->
     <div class="editor-field" :class="{ focused: focusedField === 'title' }">
       <label class="field-label">标题</label>
       <input
         ref="titleRef"
+        v-model="title"
         type="text"
         class="title-input"
         :class="{ editing: isEditing && focusedField === 'title' }"
-        :value="task.title"
         placeholder="任务标题"
-        @input="updateTitle(($event.target as HTMLInputElement).value)"
         @keydown="handleInputKeydown"
         @focus="handleFieldFocus('title')"
       />
@@ -147,12 +141,11 @@ onUnmounted(() => {
       <label class="field-label">描述</label>
       <textarea
         ref="descRef"
+        v-model="description"
         class="desc-input"
         :class="{ editing: isEditing && focusedField === 'description' }"
-        :value="task.description"
         placeholder="简短描述"
         rows="3"
-        @input="updateDescription(($event.target as HTMLTextAreaElement).value)"
         @keydown="handleInputKeydown"
         @focus="handleFieldFocus('description')"
       ></textarea>
@@ -163,11 +156,10 @@ onUnmounted(() => {
       <label class="field-label">备注 (Markdown)</label>
       <textarea
         ref="notesRef"
+        v-model="notes"
         class="notes-input"
         :class="{ editing: isEditing && focusedField === 'notes' }"
-        :value="task.notes"
         placeholder="详细备注，支持 Markdown 格式"
-        @input="updateNotes(($event.target as HTMLTextAreaElement).value)"
         @keydown="handleInputKeydown"
         @focus="handleFieldFocus('notes')"
       ></textarea>
