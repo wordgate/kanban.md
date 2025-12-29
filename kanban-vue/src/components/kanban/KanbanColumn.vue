@@ -12,6 +12,7 @@ import type { Column, Task } from '@/types'
 const props = defineProps<{
   column: Column
   tasks: Task[]
+  isFirstColumn?: boolean
 }>()
 
 const uiStore = useUIStore()
@@ -66,8 +67,9 @@ function isNewTaskFocused(): boolean {
     </div>
 
     <div class="column-content">
-      <!-- 新建任务卡片（始终在顶部） -->
+      <!-- 新建任务卡片（仅第一列显示） -->
       <NewTaskCard
+        v-if="isFirstColumn"
         :is-focused="isNewTaskFocused()"
         @create="createTask"
       />

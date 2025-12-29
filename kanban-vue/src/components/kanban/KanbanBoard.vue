@@ -20,10 +20,11 @@ const tasksByColumn = computed(() => {
 <template>
   <div class="kanban-board">
     <KanbanColumn
-      v-for="column in configStore.columns"
+      v-for="(column, index) in configStore.columns"
       :key="column.id"
       :column="column"
       :tasks="tasksByColumn[column.id] || []"
+      :is-first-column="index === 0"
     />
   </div>
 </template>

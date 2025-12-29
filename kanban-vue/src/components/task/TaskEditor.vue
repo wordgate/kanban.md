@@ -131,7 +131,7 @@ onUnmounted(() => {
         :class="{ editing: isEditing && focusedField === 'description' }"
         :value="task.description"
         placeholder="简短描述"
-        rows="3"
+        rows="5"
         @input="updateDescription(($event.target as HTMLTextAreaElement).value)"
         @keydown="handleInputKeydown"
         @focus="handleFieldFocus('description')"
@@ -161,6 +161,7 @@ onUnmounted(() => {
   flex-direction: column;
   padding: var(--spacing-lg);
   overflow-y: auto;
+  height: 100%;
 }
 
 .editor-field {
@@ -229,11 +230,14 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .notes-input {
   flex: 1;
   width: 100%;
+  min-height: 200px;
   padding: var(--spacing-md);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);

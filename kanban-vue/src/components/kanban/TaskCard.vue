@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useUIStore, useConfigStore } from '@/stores'
 import { useDragDrop } from '@/composables'
 import type { Task } from '@/types'
@@ -8,6 +8,21 @@ const props = defineProps<{
   task: Task
   isFocused: boolean
 }>()
+
+// Reference to card element for auto-scroll
+const cardRef = ref<HTMLElement | null>(null)
+
+// Auto-scroll into view when focused
+watch(() => props.isFocused, (focused) => {
+  if (focused && cardRef.value) {
+    nextTick(() => {
+      cardRef.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      })
+    })
+  }
+})
 
 const uiStore = useUIStore()
 const configStore = useConfigStore()
@@ -39,6 +54,7 @@ function handleDragStart(event: DragEvent) {
 
 <template>
   <div
+    ref="cardRef"
     class="task-card"
     :class="{ focused: isFocused }"
     draggable="true"
