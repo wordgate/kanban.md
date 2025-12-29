@@ -1,11 +1,28 @@
 <script setup lang="ts">
-defineProps<{
+import { ref, watch, nextTick } from 'vue'
+
+const props = defineProps<{
   isFocused: boolean
 }>()
 
 const emit = defineEmits<{
   create: []
 }>()
+
+// Reference to card element for auto-scroll
+const cardRef = ref<HTMLElement | null>(null)
+
+// Auto-scroll into view when focused
+watch(() => props.isFocused, (focused) => {
+  if (focused && cardRef.value) {
+    nextTick(() => {
+      cardRef.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest'
+      })
+    })
+  }
+})
 
 function handleClick() {
   emit('create')
@@ -14,6 +31,7 @@ function handleClick() {
 
 <template>
   <div
+    ref="cardRef"
     class="new-task-card"
     :class="{ focused: isFocused }"
     @click="handleClick"

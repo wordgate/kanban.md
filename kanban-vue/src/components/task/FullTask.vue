@@ -232,6 +232,8 @@ function close() {
 
 .panel-center {
   background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-right {

@@ -26,15 +26,20 @@ export const kanbanBoardHandler: NavigationHandler = {
     const column = columns[currentColIndex]
     const columnTasks = column ? task.tasksByColumn(column.id) : []
 
+    // Determine if this is the first column (only first column has new-task)
+    const isFirstColumn = currentColIndex === 0
+
     // Determine current item index within column
-    // new-task is index 0, tasks are 1+
+    // For first column: new-task is index 0, tasks are 1+
+    // For other columns: tasks start at index 0
     let currentItemIndex = 0
     if (path.item === 'new-task') {
       currentItemIndex = 0
     } else if (path.item) {
       const taskId = extractTaskId(path.item)
       const taskIndex = columnTasks.findIndex(t => t.id === taskId)
-      currentItemIndex = taskIndex >= 0 ? taskIndex + 1 : 0
+      // For first column, tasks start at index 1; for others, at index 0
+      currentItemIndex = taskIndex >= 0 ? (isFirstColumn ? taskIndex + 1 : taskIndex) : 0
     }
 
     switch (action) {
@@ -42,9 +47,16 @@ export const kanbanBoardHandler: NavigationHandler = {
         if (currentItemIndex > 0) {
           // Move up within column
           const newIndex = currentItemIndex - 1
-          const newItem = newIndex === 0
-            ? 'new-task'
-            : taskIdToPathItem(columnTasks[newIndex - 1].id)
+          let newItem: string
+          if (isFirstColumn) {
+            // First column has new-task at index 0
+            newItem = newIndex === 0
+              ? 'new-task'
+              : taskIdToPathItem(columnTasks[newIndex - 1].id)
+          } else {
+            // Other columns: directly use task at newIndex
+            newItem = taskIdToPathItem(columnTasks[newIndex].id)
+          }
           return {
             handled: true,
             newPath: buildPath({
@@ -59,9 +71,14 @@ export const kanbanBoardHandler: NavigationHandler = {
       }
 
       case 'down': {
-        if (currentItemIndex < columnTasks.length) {
+        // Calculate max index based on column type
+        const maxIndex = isFirstColumn ? columnTasks.length : columnTasks.length - 1
+        if (currentItemIndex < maxIndex) {
           const newIndex = currentItemIndex + 1
-          const newItem = taskIdToPathItem(columnTasks[newIndex - 1].id)
+          // For first column, tasks are at index 1+, so use newIndex - 1
+          // For other columns, tasks are at index 0+, so use newIndex
+          const taskArrayIndex = isFirstColumn ? newIndex - 1 : newIndex
+          const newItem = taskIdToPathItem(columnTasks[taskArrayIndex].id)
           return {
             handled: true,
             newPath: buildPath({
@@ -80,11 +97,23 @@ export const kanbanBoardHandler: NavigationHandler = {
           // Move to previous column
           const prevColumn = columns[currentColIndex - 1]
           const prevTasks = task.tasksByColumn(prevColumn.id)
-          // Clamp item index to new column's task count
-          const newItemIndex = Math.min(currentItemIndex, prevTasks.length)
-          const newItem = newItemIndex === 0
-            ? 'new-task'
-            : taskIdToPathItem(prevTasks[newItemIndex - 1].id)
+          const prevIsFirstColumn = currentColIndex - 1 === 0
+
+          // Calculate new item index for previous column
+          let newItem: string
+          if (prevIsFirstColumn) {
+            // Previous column has new-task, clamp to available items (0 = new-task, 1+ = tasks)
+            const newItemIndex = Math.min(currentItemIndex, prevTasks.length)
+            newItem = newItemIndex === 0
+              ? 'new-task'
+              : taskIdToPathItem(prevTasks[newItemIndex - 1].id)
+          } else {
+            // Previous column has no new-task, clamp to tasks only
+            const newItemIndex = Math.min(currentItemIndex, Math.max(0, prevTasks.length - 1))
+            newItem = prevTasks.length > 0
+              ? taskIdToPathItem(prevTasks[newItemIndex].id)
+              : taskIdToPathItem('') // Empty column edge case
+          }
           return {
             handled: true,
             newPath: buildPath({
@@ -107,10 +136,11 @@ export const kanbanBoardHandler: NavigationHandler = {
         if (currentColIndex < columns.length - 1) {
           const nextColumn = columns[currentColIndex + 1]
           const nextTasks = task.tasksByColumn(nextColumn.id)
-          const newItemIndex = Math.min(currentItemIndex, nextTasks.length)
-          const newItem = newItemIndex === 0
-            ? 'new-task'
-            : taskIdToPathItem(nextTasks[newItemIndex - 1].id)
+          // Next column is never the first column, so no new-task
+          const newItemIndex = Math.min(currentItemIndex, Math.max(0, nextTasks.length - 1))
+          const newItem = nextTasks.length > 0
+            ? taskIdToPathItem(nextTasks[newItemIndex].id)
+            : taskIdToPathItem('') // Empty column edge case
           return {
             handled: true,
             newPath: buildPath({
