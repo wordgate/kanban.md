@@ -22,15 +22,18 @@ export interface KanbanConfig {
   tags: string[]
 }
 
+// 固定的看板列配置（不可修改）
+export const FIXED_COLUMNS: Column[] = [
+  { id: 'todo', name: 'Todo' },
+  { id: 'process', name: 'Process' },
+  { id: 'review', name: 'Review' },
+  { id: 'done', name: 'Done' },
+]
+
 export function createDefaultConfig(): KanbanConfig {
   return {
-    columns: [
-      { id: 'todo', name: '待办' },
-      { id: 'in-progress', name: '进行中' },
-      { id: 'in-review', name: '审核中' },
-      { id: 'done', name: '已完成' },
-    ],
-    categories: ['前端', '后端', '设计', '文档'],
+    columns: [...FIXED_COLUMNS],
+    categories: [],
     users: [],
     priorities: [
       { icon: '🔴', name: '紧急', value: 'critical' },

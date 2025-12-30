@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import ProjectList from './ProjectList.vue'
 import SearchBar from '../search/SearchBar.vue'
-import ToolsSection from './ToolsSection.vue'
 import ArchivePanel from './ArchivePanel.vue'
 import { useExactFocusBinding } from '@/composables/useFocusBinding'
 
@@ -20,7 +19,6 @@ const { isFocused: sidebarIsFocused } = useExactFocusBinding('kanban.sidebar')
 
     <SearchBar />
     <ProjectList />
-    <ToolsSection />
 
     <div class="sidebar-footer">
       <ArchivePanel />
