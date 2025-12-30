@@ -142,9 +142,9 @@ export function useProjectData() {
         isSwitchingProject = true
       }
 
-      // Load new project
-      const loaded = await projectStore.loadProject(projectId)
-      if (!loaded) return false
+      // Load new project (用户点击触发，有用户手势，可以请求权限)
+      const result = await projectStore.loadProject(projectId)
+      if (result !== 'success') return false
 
       // Load project data
       await loadProject()

@@ -1,13 +1,32 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useProjectStore } from '@/stores'
 import { useProjectData } from '@/composables/useProjectData'
 
 const projectStore = useProjectStore()
 const { loadProject } = useProjectData()
 
+// 检查是否有待授权的项目
+const needsPermission = computed(() => !!projectStore.pendingPermissionProjectId)
+const pendingProjectName = computed(() => {
+  if (!projectStore.pendingPermissionProjectId) return ''
+  const project = projectStore.projects.find(p => p.id === projectStore.pendingPermissionProjectId)
+  return project?.name || '项目'
+})
+
 async function handleAddProject() {
   const selected = await projectStore.selectFolder()
   if (selected) {
+    await loadProject()
+  }
+}
+
+// 处理权限恢复（需要用户点击触发）
+async function handleRestorePermission() {
+  if (!projectStore.pendingPermissionProjectId) return
+
+  const result = await projectStore.requestProjectPermission(projectStore.pendingPermissionProjectId)
+  if (result === 'success') {
     await loadProject()
   }
 }
@@ -23,6 +42,17 @@ async function handleAddProject() {
 
       <h1 class="welcome-title">Markdown 任务看板</h1>
       <p class="welcome-desc">键盘优先的本地任务管理工具</p>
+
+      <!-- 权限恢复提示 -->
+      <div v-if="needsPermission" class="permission-notice">
+        <p class="permission-text">
+          项目 "{{ pendingProjectName }}" 需要重新授权访问
+        </p>
+        <button class="permission-btn" @click="handleRestorePermission">
+          <span>🔓</span>
+          <span>点击授权访问</span>
+        </button>
+      </div>
 
       <button class="welcome-btn" @click="handleAddProject">
         <span>📁</span>
@@ -110,6 +140,39 @@ async function handleAddProject() {
   background: var(--bg-hover);
   border-color: var(--text-accent);
   color: var(--text-accent);
+}
+
+.permission-notice {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius-md);
+}
+
+.permission-text {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+  font-size: 0.9rem;
+}
+
+.permission-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: var(--radius-sm);
+  color: #fbbf24;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.permission-btn:hover {
+  background: rgba(251, 191, 36, 0.3);
+  border-color: #fbbf24;
 }
 
 .welcome-hints {

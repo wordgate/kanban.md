@@ -1,17 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Column, User, Priority, KanbanConfig } from '@/types'
-import { createDefaultConfig } from '@/types'
+import type { User, Priority, KanbanConfig } from '@/types'
+import { createDefaultConfig, FIXED_COLUMNS } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
-  const columns = ref<Column[]>([])
+  // 列配置是固定的，不可修改
+  const columns = ref([...FIXED_COLUMNS])
   const categories = ref<string[]>([])
   const users = ref<User[]>([])
   const priorities = ref<Priority[]>([])
   const tags = ref<string[]>([])
 
   function setConfig(config: KanbanConfig) {
-    columns.value = config.columns
+    // 忽略传入的 columns，始终使用固定列
+    columns.value = [...FIXED_COLUMNS]
     categories.value = config.categories
     users.value = config.users
     priorities.value = config.priorities
@@ -20,31 +22,6 @@ export const useConfigStore = defineStore('config', () => {
 
   function resetToDefault() {
     setConfig(createDefaultConfig())
-  }
-
-  function addColumn(column: Column) {
-    columns.value.push(column)
-  }
-
-  function updateColumn(id: string, data: Partial<Column>) {
-    const index = columns.value.findIndex(c => c.id === id)
-    if (index !== -1) {
-      columns.value[index] = { ...columns.value[index], ...data }
-    }
-  }
-
-  function removeColumn(id: string) {
-    columns.value = columns.value.filter(c => c.id !== id)
-  }
-
-  function moveColumn(id: string, direction: 'up' | 'down') {
-    const index = columns.value.findIndex(c => c.id === id)
-    if (index === -1) return
-    const newIndex = direction === 'up' ? index - 1 : index + 1
-    if (newIndex < 0 || newIndex >= columns.value.length) return
-    const temp = columns.value[index]
-    columns.value[index] = columns.value[newIndex]
-    columns.value[newIndex] = temp
   }
 
   function addCategory(category: string) {
@@ -86,10 +63,6 @@ export const useConfigStore = defineStore('config', () => {
     tags,
     setConfig,
     resetToDefault,
-    addColumn,
-    updateColumn,
-    removeColumn,
-    moveColumn,
     addCategory,
     addUser,
     addTag,
