@@ -22,16 +22,18 @@ onMounted(async () => {
   // 加载项目列表
   await projectStore.loadProjects()
 
-  // 如果有项目，自动加载第一个
+  // 如果有项目，尝试自动加载第一个
+  // 使用 skipPermissionRequest=true 避免在没有用户手势时请求权限
   if (projectStore.projects.length > 0) {
-    const loaded = await projectStore.loadProject(projectStore.projects[0].id)
-    if (loaded) {
+    const result = await projectStore.loadProject(projectStore.projects[0].id, true)
+    if (result === 'success') {
       await loadProject()
       // 初始化焦点到第一个列
       if (configStore.columns.length > 0) {
         focusStore.initializeWithColumn(configStore.columns[0].id)
       }
     }
+    // 如果 result === 'needs_permission'，WelcomeScreen 会显示授权提示
   }
 
   // 设置自动保存

@@ -6,6 +6,13 @@ const DB_NAME = 'KanbanDB'
 const DB_VERSION = 1
 const STORE_NAME = 'projects'
 
+// 项目加载结果状态
+export type LoadProjectResult =
+  | 'success'           // 加载成功
+  | 'needs_permission'  // 句柄有效但需要用户授权（需要用户手势）
+  | 'not_found'         // 句柄不存在或无法恢复
+  | 'denied'            // 用户明确拒绝了权限
+
 export const useProjectStore = defineStore('project', () => {
   const projects = ref<Project[]>([])
   const currentProjectId = ref<string | null>(null)
@@ -13,6 +20,8 @@ export const useProjectStore = defineStore('project', () => {
   const kanbanFileHandle = ref<FileSystemFileHandle | null>(null)
   const archiveFileHandle = ref<FileSystemFileHandle | null>(null)
   const isLoading = ref(false)
+  // 需要用户授权的项目 ID（当权限过期时设置）
+  const pendingPermissionProjectId = ref<string | null>(null)
 
   // 打开 IndexedDB
   function openDB(): Promise<IDBDatabase> {
@@ -134,20 +143,46 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // 加载项目
-  async function loadProject(projectId: string): Promise<boolean> {
+  // 加载项目（区分不同的失败原因）
+  async function loadProject(projectId: string, skipPermissionRequest = false): Promise<LoadProjectResult> {
     isLoading.value = true
     try {
       const handle = await getProjectHandle(projectId)
-      if (!handle) return false
+      if (!handle) {
+        pendingPermissionProjectId.value = null
+        return 'not_found'
+      }
 
       // 检查权限
       const permission = await handle.queryPermission({ mode: 'readwrite' })
       if (permission !== 'granted') {
-        const newPermission = await handle.requestPermission({ mode: 'readwrite' })
-        if (newPermission !== 'granted') return false
+        // 如果跳过权限请求（用于自动加载），标记需要授权
+        if (skipPermissionRequest) {
+          pendingPermissionProjectId.value = projectId
+          return 'needs_permission'
+        }
+
+        // 尝试请求权限（需要用户手势）
+        try {
+          const newPermission = await handle.requestPermission({ mode: 'readwrite' })
+          if (newPermission === 'denied') {
+            pendingPermissionProjectId.value = null
+            return 'denied'
+          }
+          if (newPermission !== 'granted') {
+            // 权限请求失败（可能是没有用户手势）
+            pendingPermissionProjectId.value = projectId
+            return 'needs_permission'
+          }
+        } catch {
+          // 权限请求抛出异常，标记需要授权
+          pendingPermissionProjectId.value = projectId
+          return 'needs_permission'
+        }
       }
 
+      // 权限已授予，清除待授权标记
+      pendingPermissionProjectId.value = null
       directoryHandle.value = handle
       currentProjectId.value = projectId
 
@@ -171,13 +206,18 @@ export const useProjectStore = defineStore('project', () => {
         await saveProject({ ...project, lastAccess: Date.now(), handle })
       }
 
-      return true
+      return 'success'
     } catch (error) {
       console.error('加载项目失败:', error)
-      return false
+      return 'not_found'
     } finally {
       isLoading.value = false
     }
+  }
+
+  // 请求项目权限（需要用户手势调用）
+  async function requestProjectPermission(projectId: string): Promise<LoadProjectResult> {
+    return loadProject(projectId, false)
   }
 
   // 删除项目
@@ -247,9 +287,11 @@ export const useProjectStore = defineStore('project', () => {
     kanbanFileHandle,
     archiveFileHandle,
     isLoading,
+    pendingPermissionProjectId,
     loadProjects,
     selectFolder,
     loadProject,
+    requestProjectPermission,
     deleteProject,
     renameProject,
     switchProject,
